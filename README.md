@@ -14,7 +14,7 @@
           // do soming
     }];
     self.navigationItem.titleView = segmentedControl;
- 
+ ```
    
    效果如下：
    
