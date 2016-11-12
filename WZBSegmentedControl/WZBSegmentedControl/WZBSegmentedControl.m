@@ -16,22 +16,61 @@
 [View.layer setMasksToBounds:YES];\
 [View.layer setBorderWidth:(Width)];\
 [View.layer setBorderColor:[Color CGColor]]
-#define WZBColor(r, g, b) [UIColor colorWithRed:(r)/255.0 green:(g)/255.0 blue:(b)/255.0 alpha:1.0]
+#define WZBColor(r, g, b) [UIColor colorWithRed:(r) / 255.0f green:(g) / 255.0f blue:(b) / 255.0f alpha:1.0]
+
+// 根据颜色拿到RGB数值
+void getRGBValue(CGFloat colorArr[3], UIColor *color) {
+    unsigned char data[4];
+    // 宽,高,内存中像素的每个组件的位数（RGB应该为32）,bitmap的每一行在内存所占的比特数
+    size_t width = 1, height = 1, bitsPerComponent = 8, bytesPerRow = 4;
+    // bitmap上下文使用的颜色空间
+    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+    // 指定bitmap是否包含alpha通道
+    uint32_t bitmapInfo = 1;
+    // 创建一个位图上下文。当你向上下文中绘制信息时，Quartz把你要绘制的信息作为位图数据绘制到指定的内存块。一个新的位图上下文的像素格式由三个参数决定：每个组件的位数，颜色空间，alpha选项。alpha值决定了绘制像素的透明性
+    CGContextRef context = CGBitmapContextCreate(&data, width, height, bitsPerComponent, bytesPerRow, space, bitmapInfo);
+    // 设置当前上下文中填充颜色
+    CGContextSetFillColorWithColor(context, [color CGColor]);
+    // 在此区域内填入当前填充颜色
+    CGContextFillRect(context, CGRectMake(0, 0, 1, 1));
+    CGContextRelease(context);
+    CGColorSpaceRelease(space);
+    for (NSInteger i = 0; i < 3; i++) {
+        colorArr[i] = data[i];
+    }
+}
 
 @interface WZBSegmentedControl ()
-
-// 所有title
-@property (nonatomic, strong) NSArray *titles;
-// 点击title的block回调
-@property (nonatomic, copy) void(^titleClick)(NSInteger index);
-// baise的滑块
-@property (nonatomic, strong) UIView *backgroundView;
-// 辅助属性
-@property (nonatomic, strong) UIButton *selectButton;
 
 @end
 
 @implementation WZBSegmentedControl
+
+#pragma mark - lazy -- 默认颜色
+- (UIColor *)normalColor {
+    if (!_normalColor) {
+        _normalColor = [UIColor blackColor];
+    }
+    return _normalColor;
+}
+- (UIColor *)selectColor {
+    if (!_selectColor) {
+        _selectColor = [UIColor redColor];
+    }
+    return _selectColor;
+}
+- (UIColor *)sliderColor {
+    if (!_sliderColor) {
+        _sliderColor = [UIColor whiteColor];
+    }
+    return _sliderColor;
+}
+- (UIColor *)edgingColor {
+    if (!_edgingColor) {
+        _edgingColor = [UIColor whiteColor];
+    }
+    return _edgingColor;
+}
 
 + (instancetype)segmentWithFrame:(CGRect)frame titles:(NSArray *)titles titleClick:(void(^)(NSInteger index))titleClick {
     return [[self alloc] initWithFrame:frame titles:titles titleClick:titleClick];
@@ -39,10 +78,9 @@
 
 - (instancetype)initWithFrame:(CGRect)frame titles:(NSArray *)titles titleClick:(void(^)(NSInteger index))titleClick {
     if (self = [super initWithFrame:frame]) {
-        
-        self.titles = titles;
+        _titles = titles;
         self.titleClick = titleClick;
-        
+        self.edgingWidth = 1.0f;
         // 创建底部白色滑块
         [self setupBackgroundView];
         // 创建所有按钮
@@ -51,6 +89,8 @@
         [self setupBase];
         // 先调一下这个方法，默认选择第一个按钮
         [self buttonClick:[self viewWithTag:WZBButtonTag]];
+        
+        [self addObserver:self forKeyPath:@"layer" options:NSKeyValueObservingOptionNew context:nil];
     }
     return self;
 }
@@ -73,7 +113,7 @@
         CGFloat h = self.frame.size.height;
         button.frame = CGRectMake(x, y, w, h);
         [button setTitle:self.titles[i] forState:UIControlStateNormal];
-        [button setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
+        [button setTitleColor:self.normalColor forState:UIControlStateNormal];
         button.titleLabel.textAlignment = NSTextAlignmentCenter;
         button.titleLabel.font = [UIFont systemFontOfSize:13.0f];
         button.backgroundColor = [UIColor clearColor];
@@ -84,33 +124,111 @@
 }
 
 - (void)setupBase {
-    ViewBorderRadius(self, self.frame.size.height / 2, 1, [UIColor whiteColor]);
-    ViewBorderRadius(self.backgroundView, self.frame.size.height / 2, 0, [UIColor whiteColor]);
+    ViewBorderRadius(self, self.frame.size.height / 2, self.edgingWidth, self.edgingColor);
+    ViewBorderRadius(self.backgroundView, self.frame.size.height / 2, 0, [UIColor clearColor]);
 }
 
 - (void)buttonClick:(UIButton *)button {
-    [self setContentOffset:(CGPoint){(button.tag - WZBButtonTag) * (self.frame.size.width) / self.titles.count, 0}];
-    [self.selectButton setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
-    [button setTitleColor:[UIColor redColor] forState:UIControlStateNormal];
+    [self.selectButton setTitleColor:self.normalColor forState:UIControlStateNormal];
+    [button setTitleColor:self.selectColor forState:UIControlStateNormal];
     self.selectButton = button;
+    [self setContentOffset:(CGPoint){(button.tag - WZBButtonTag) * (self.frame.size.width) / self.titles.count, 0}];
     if (self.titleClick) {
         self.titleClick(button.tag - WZBButtonTag);
     }
 }
 
+- (void)setNormalColor:(UIColor *)normalColor selectColor:(UIColor *)selectColor {
+    self.normalColor = normalColor;
+    self.selectColor = selectColor;
+    [self setAllColors];
+}
+
+- (void)setAllColors {
+    // 设置所有button的颜色
+    for (NSInteger i = 0; i < self.titles.count; i++) {
+        UIButton *button = [self viewWithTag:i + WZBButtonTag];
+        [button setTitleColor:self.normalColor forState:UIControlStateNormal];
+    }
+    [self.selectButton setTitleColor:self.selectColor forState:UIControlStateNormal];
+    // 设置滑块的颜色
+    self.backgroundView.backgroundColor = self.sliderColor;
+    // 设置边框颜色
+    self.layer.borderColor = self.edgingColor.CGColor;
+}
+
 - (void)setContentOffset:(CGPoint)contentOffset {
+    // 改变底部滑块的x值
     CGRect frame = self.backgroundView.frame;
     frame.origin.x = contentOffset.x;
     self.backgroundView.frame = frame;
     
-    // 找出要操作的两个button设置颜色（目前先这样写，后续改进）
+    // 找出要操作的两个button设置颜色
+    NSMutableArray *buttonArr = [NSMutableArray array];
     for (UIView *v in self.subviews) {
         if ([v isKindOfClass:[UIButton class]]) {
             UIButton *button = (UIButton *)v;
             CGFloat overLapWidth = CGRectIntersection(button.frame, self.backgroundView.frame).size.width;
-            NSInteger gb = 255 - overLapWidth * (255 / (self.frame.size.width / self.titles.count));
-            [button setTitleColor:WZBColor(255, gb, gb) forState:UIControlStateNormal];
+            if (overLapWidth > 0) {
+                [buttonArr addObject:button];
+            }
         }
+    }
+    
+    // 切换的时候
+    if (buttonArr.count > 1) {
+        UIButton *leftButton = buttonArr.firstObject;
+        UIButton *rightButton = buttonArr.lastObject;
+        // 设置要渐变的两个button颜色
+        [rightButton setTitleColor:WZBColor([self getRGBValueWithIndex:0 button:rightButton], [self getRGBValueWithIndex:1 button:rightButton], [self getRGBValueWithIndex:2 button:rightButton]) forState:UIControlStateNormal];
+        [leftButton setTitleColor:WZBColor([self getRGBValueWithIndex:0 button:leftButton], [self getRGBValueWithIndex:1 button:leftButton], [self getRGBValueWithIndex:2 button:leftButton]) forState:UIControlStateNormal];
+    }
+    
+    // 重新设置选中的button
+    self.selectButton = [self viewWithTag:(NSInteger)(WZBButtonTag + self.backgroundView.center.x / (self.frame.size.width / self.titles.count))];
+}
+
+// 根据button拿到当前button的RGB数值 index:0为R，1为G，2为B，isSelectButton:是否为选中的当前button
+- (CGFloat)getRGBValueWithIndex:(NSInteger)index button:(UIButton *)button {
+    // 创建两个数组接收颜色的RGB
+    CGFloat leftRGB[3];
+    CGFloat rightRGB[3];
+    getRGBValue(leftRGB, self.normalColor);
+    getRGBValue(rightRGB, self.selectColor);
+    // 计算当前button和滑块的交叉区域宽度
+    CGFloat overLapWidth = CGRectIntersection(button.frame, self.backgroundView.frame).size.width;
+    CGFloat value = overLapWidth / button.frame.size.width;
+    // 返回RGB值
+    if ([button isEqual:self.selectButton]) {
+        return leftRGB[index] + value * (rightRGB[index] - leftRGB[index]);
+    } else {
+        return rightRGB[index] + (1 - value) * (leftRGB[index] - rightRGB[index]);
+    }
+}
+
+// 设置所有颜色
+- (void)setNormalColor:(UIColor *)normalColor selectColor:(UIColor *)selectColor sliderColor:(UIColor *)sliderColor edgingColor:(UIColor *)edgingColor {
+    self.normalColor = normalColor;
+    self.selectColor = selectColor;
+    self.sliderColor = sliderColor;
+    self.edgingColor = edgingColor;
+    [self setAllColors];
+}
+
+// 设置所有属性
+- (void)setNormalColor:(UIColor *)normalColor selectColor:(UIColor *)selectColor sliderColor:(UIColor *)sliderColor edgingColor:(UIColor *)edgingColor edgingWidth:(CGFloat)edgingWidth {
+    self.normalColor = normalColor;
+    self.selectColor = selectColor;
+    self.sliderColor = sliderColor;
+    self.edgingColor = edgingColor;
+    self.edgingWidth = edgingWidth;
+    [self setAllColors];
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey,id> *)change context:(void *)context {
+    if ([keyPath isEqualToString:@"layer"]) {
+        self.edgingColor = (__bridge UIColor *)(self.layer.borderColor);
+        self.edgingWidth = self.layer.borderWidth;
     }
 }
 

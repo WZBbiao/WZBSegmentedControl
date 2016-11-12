@@ -33,6 +33,7 @@
     WZBSegmentedControl *segmentedControl = [WZBSegmentedControl segmentWithFrame:(CGRect){0, 0, 170, 25} titles:[self titles] titleClick:^(NSInteger index) {
         [self.scrollView setContentOffset:CGPointMake(index * WZBScreenW, 0)];
     }];
+    [segmentedControl setNormalColor:[UIColor greenColor] selectColor:[UIColor blueColor]];
     [self.navigationController.navigationBar setBarTintColor: WZBColor(224, 66, 44)];
     self.navigationItem.titleView = segmentedControl;
     [self setupScrollView];
@@ -45,7 +46,6 @@
     scrollView.contentSize = CGSizeMake([[self titles] count] * WZBScreenW, 0);
     scrollView.pagingEnabled = YES;
     scrollView.delegate = self;
-    
     // childViews
     NSArray *backgroundColors = @[[UIColor redColor], [UIColor blueColor]];
     for (NSInteger i = 0; i < [[self titles] count]; i++) {
