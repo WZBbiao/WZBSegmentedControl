@@ -116,7 +116,7 @@ void getRGBValue(CGFloat colorArr[3], UIColor *color) {
     UIView *backgroundView = [[UIView alloc] initWithFrame:(CGRect){0, 0, self.frame.size.width / self.titles.count, self.frame.size.height}];
     [self addSubview:backgroundView];
     backgroundView.backgroundColor = self.edgingColor;
-    self.backgroundView = backgroundView;
+    _backgroundView = backgroundView;
 }
 
 - (void)setupAllButton {
@@ -162,7 +162,7 @@ void getRGBValue(CGFloat colorArr[3], UIColor *color) {
 - (void)buttonClick:(UIButton *)button {
     [self.selectButton setTitleColor:self.normalColor forState:UIControlStateNormal];
     [button setTitleColor:self.selectColor forState:UIControlStateNormal];
-    self.selectButton = button;
+    _selectButton = button;
     [self setContentOffset:(CGPoint){(button.tag - WZBButtonTag) * (self.frame.size.width) / self.titles.count, 0}];
     
     NSInteger selectIndex = button.tag - WZBButtonTag;
@@ -217,13 +217,10 @@ void getRGBValue(CGFloat colorArr[3], UIColor *color) {
     
     // 找出要操作的两个button设置颜色
     NSMutableArray *buttonArr = [NSMutableArray array];
-    for (UIView *v in self.subviews) {
-        if ([v isKindOfClass:[UIButton class]]) {
-            UIButton *button = (UIButton *)v;
-            CGFloat overLapWidth = CGRectIntersection(button.frame, self.backgroundView.frame).size.width;
-            if (overLapWidth > 0) {
-                [buttonArr addObject:button];
-            }
+    for (UIButton *button in self.allButtons) {
+        CGFloat overLapWidth = CGRectIntersection(button.frame, self.backgroundView.frame).size.width;
+        if (overLapWidth > 0) {
+            [buttonArr addObject:button];
         }
     }
     
@@ -237,10 +234,10 @@ void getRGBValue(CGFloat colorArr[3], UIColor *color) {
     }
     
     // 重新设置选中的button
-    self.selectButton = [self viewWithTag:(NSInteger)(WZBButtonTag + self.backgroundView.center.x / (self.frame.size.width / self.titles.count))];
+    _selectButton = [self viewWithTag:(NSInteger)(WZBButtonTag + self.backgroundView.center.x / (self.frame.size.width / self.titles.count))];
 }
 
-// 根据button拿到当前button的RGB数值 index:0为R，1为G，2为B，isSelectButton:是否为选中的当前button
+// 根据button拿到当前button的RGB数值 index:0为R，1为G，2为B，button:是当前button
 - (CGFloat)getRGBValueWithIndex:(NSInteger)index button:(UIButton *)button {
     // 创建两个数组接收颜色的RGB
     CGFloat leftRGB[3];
@@ -256,6 +253,14 @@ void getRGBValue(CGFloat colorArr[3], UIColor *color) {
     } else {
         return rightRGB[index] + (1 - value) * (leftRGB[index] - rightRGB[index]);
     }
+}
+
+// 设置部分颜色
+- (void)setNormalColor:(UIColor *)normalColor selectColor:(UIColor *)selectColor edgingColor:(UIColor *)edgingColor {
+    self.normalColor = normalColor;
+    self.selectColor = selectColor;
+    self.edgingColor = edgingColor;
+    [self setAllColors];
 }
 
 // 设置所有颜色

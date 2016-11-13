@@ -34,11 +34,8 @@
     WZBSegmentedControl *segmentedControl = [WZBSegmentedControl segmentWithFrame:(CGRect){0, 0, 170, 25} titles:[self titles] tClick:^(NSInteger index) {
         [self.scrollView setContentOffset:CGPointMake(index * WZBScreenW, 0)];
     }];
-    [segmentedControl setTitleClick:^(NSInteger index, UIButton *button) {
-        NSLog(@"setTitleClick---%zd, %zd", index, button.tag);
-    }];
     segmentedControl.delegate = self;
-    [segmentedControl setNormalColor:[UIColor whiteColor] selectColor:[UIColor redColor]];
+    [segmentedControl setNormalColor:[UIColor whiteColor] selectColor:[UIColor redColor] edgingColor:[UIColor whiteColor]];
     self.navigationItem.titleView = segmentedControl;
     
     [self.navigationController.navigationBar setBarTintColor: WZBColor(224, 66, 44)];
