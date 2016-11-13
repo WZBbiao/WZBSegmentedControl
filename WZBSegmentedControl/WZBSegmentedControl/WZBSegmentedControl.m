@@ -41,6 +41,10 @@ void getRGBValue(CGFloat colorArr[3], UIColor *color) {
 }
 
 @interface WZBSegmentedControl ()
+// 所有button
+@property (nonatomic, strong) NSMutableArray *allButtons;
+// 上一次选中的下标
+@property (nonatomic, assign) NSInteger lastIndex;
 
 @end
 
@@ -72,25 +76,38 @@ void getRGBValue(CGFloat colorArr[3], UIColor *color) {
     return _edgingColor;
 }
 
-+ (instancetype)segmentWithFrame:(CGRect)frame titles:(NSArray *)titles titleClick:(void(^)(NSInteger index))titleClick {
+- (NSMutableArray *)allButtons {
+    if (!_allButtons) {
+        _allButtons = [NSMutableArray array];
+    }
+    return _allButtons;
+}
+
++ (instancetype)segmentWithFrame:(CGRect)frame titles:(NSArray *)titles tClick:(void(^)(NSInteger index))tClick {
+    return [[self alloc] initWithFrame:frame titles:titles tClick:tClick];
+}
+
+- (instancetype)initWithFrame:(CGRect)frame titles:(NSArray *)titles tClick:(void(^)(NSInteger index))tClick {
+    if (self = [super initWithFrame:frame]) {
+        _titles = titles;
+        self.tClick = tClick;
+        // 设置其他基本属性
+        [self setupBase];
+    }
+    return self;
+}
+
+/* 初始化方法，block回调中带有选中的button */
++ (instancetype)segmentWithFrame:(CGRect)frame titles:(NSArray *)titles titleClick:(void(^)(NSInteger index, UIButton *selectButton))titleClick {
     return [[self alloc] initWithFrame:frame titles:titles titleClick:titleClick];
 }
 
-- (instancetype)initWithFrame:(CGRect)frame titles:(NSArray *)titles titleClick:(void(^)(NSInteger index))titleClick {
+- (instancetype)initWithFrame:(CGRect)frame titles:(NSArray *)titles titleClick:(void(^)(NSInteger index, UIButton *selectButton))titleClick {
     if (self = [super initWithFrame:frame]) {
         _titles = titles;
         self.titleClick = titleClick;
-        self.edgingWidth = 1.0f;
-        // 创建底部白色滑块
-        [self setupBackgroundView];
-        // 创建所有按钮
-        [self setupAllButton];
         // 设置其他基本属性
         [self setupBase];
-        // 先调一下这个方法，默认选择第一个按钮
-        [self buttonClick:[self viewWithTag:WZBButtonTag]];
-        
-        [self addObserver:self forKeyPath:@"layer" options:NSKeyValueObservingOptionNew context:nil];
     }
     return self;
 }
@@ -98,7 +115,7 @@ void getRGBValue(CGFloat colorArr[3], UIColor *color) {
 - (void)setupBackgroundView {
     UIView *backgroundView = [[UIView alloc] initWithFrame:(CGRect){0, 0, self.frame.size.width / self.titles.count, self.frame.size.height}];
     [self addSubview:backgroundView];
-    backgroundView.backgroundColor = [UIColor whiteColor];
+    backgroundView.backgroundColor = self.edgingColor;
     self.backgroundView = backgroundView;
 }
 
@@ -120,10 +137,24 @@ void getRGBValue(CGFloat colorArr[3], UIColor *color) {
         button.tag = WZBButtonTag + i;
         [button addTarget:self action:@selector(buttonClick:) forControlEvents:UIControlEventTouchUpInside];
         [button setAdjustsImageWhenHighlighted:NO];
+        // 添加到数组中
+        [self.allButtons addObject:button];
     }
 }
 
 - (void)setupBase {
+    // 默认有1的边框
+    self.edgingWidth = 1.0f;
+    // 创建底部白色滑块
+    [self setupBackgroundView];
+    // 创建所有按钮
+    [self setupAllButton];
+    // 先调一下这个方法，默认选择第一个按钮
+    [self buttonClick:[self viewWithTag:WZBButtonTag]];
+    // 监听这两个属性，因为它们有可能在外界被用户更改，而内部不知道，就会导致bug
+    [self.layer addObserver:self forKeyPath:@"borderWidth" options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld context:nil];
+    [self.layer addObserver:self forKeyPath:@"borderColor" options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld context:nil];
+    // 设置圆角
     ViewBorderRadius(self, self.frame.size.height / 2, self.edgingWidth, self.edgingColor);
     ViewBorderRadius(self.backgroundView, self.frame.size.height / 2, 0, [UIColor clearColor]);
 }
@@ -133,9 +164,29 @@ void getRGBValue(CGFloat colorArr[3], UIColor *color) {
     [button setTitleColor:self.selectColor forState:UIControlStateNormal];
     self.selectButton = button;
     [self setContentOffset:(CGPoint){(button.tag - WZBButtonTag) * (self.frame.size.width) / self.titles.count, 0}];
+    
+    NSInteger selectIndex = button.tag - WZBButtonTag;
+    // 调用代理和block
     if (self.titleClick) {
-        self.titleClick(button.tag - WZBButtonTag);
+        self.titleClick(selectIndex, self.selectButton);
     }
+    if (self.tClick) {
+        self.tClick(selectIndex);
+    }
+    if ([self.delegate respondsToSelector:@selector(segmentedValueDidChange:selectIndex:)]) {
+        [self.delegate segmentedValueDidChange:self selectIndex:selectIndex];
+    }
+    if ([self.delegate respondsToSelector:@selector(segmentedValueDidChange:selectIndex:fromeIndex:)]) {
+        [self.delegate segmentedValueDidChange:self selectIndex:selectIndex fromeIndex:self.lastIndex];
+    }
+    if ([self.delegate respondsToSelector:@selector(segmentedValueDidChange:selectIndex:fromeIndex:selectButton:)]) {
+        [self.delegate segmentedValueDidChange:self selectIndex:selectIndex fromeIndex:self.lastIndex selectButton:button];
+    }
+    if ([self.delegate respondsToSelector:@selector(segmentedValueDidChange:selectIndex:fromeIndex:selectButton:allButtons:)]) {
+        [self.delegate segmentedValueDidChange:self selectIndex:selectIndex fromeIndex:self.lastIndex selectButton:button allButtons:self.allButtons];
+    }
+    // 给最后一个下标赋值
+    self.lastIndex = selectIndex;
 }
 
 - (void)setNormalColor:(UIColor *)normalColor selectColor:(UIColor *)selectColor {
@@ -155,6 +206,7 @@ void getRGBValue(CGFloat colorArr[3], UIColor *color) {
     self.backgroundView.backgroundColor = self.sliderColor;
     // 设置边框颜色
     self.layer.borderColor = self.edgingColor.CGColor;
+    self.layer.borderWidth = self.edgingWidth;
 }
 
 - (void)setContentOffset:(CGPoint)contentOffset {
@@ -226,10 +278,15 @@ void getRGBValue(CGFloat colorArr[3], UIColor *color) {
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey,id> *)change context:(void *)context {
-    if ([keyPath isEqualToString:@"layer"]) {
-        self.edgingColor = (__bridge UIColor *)(self.layer.borderColor);
+    if ([keyPath isEqualToString:@"borderWidth"] || [keyPath isEqualToString:@"borderColor"]) {
+        self.edgingColor = [UIColor colorWithCGColor:self.layer.borderColor];
         self.edgingWidth = self.layer.borderWidth;
     }
+}
+// 移除观察者
+- (void)dealloc {
+    [self removeObserver:self forKeyPath:@"borderWidth"];
+    [self removeObserver:self forKeyPath:@"borderColor"];
 }
 
 @end

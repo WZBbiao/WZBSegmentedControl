@@ -8,12 +8,30 @@
 
 #import <UIKit/UIKit.h>
 
+@class WZBSegmentedControl;
+
+@protocol WZBSegmentedControlDelegate <NSObject>
+
+@optional
+// segmented点击的时候调用，selectIndex：选中的index
+- (void)segmentedValueDidChange:(WZBSegmentedControl *)segment selectIndex:(NSInteger)selectIndex;
+// segmented点击的时候调用，selectIndex：选中的index，fromeIndex：从哪个index点过来的
+- (void)segmentedValueDidChange:(WZBSegmentedControl *)segment selectIndex:(NSInteger)selectIndex fromeIndex:(NSInteger)fromeIndex;
+// segmented点击的时候调用，selectIndex：选中的index，fromeIndex：从哪个index点过来的,selectButton:选中的button
+- (void)segmentedValueDidChange:(WZBSegmentedControl *)segment selectIndex:(NSInteger)selectIndex fromeIndex:(NSInteger)fromeIndex selectButton:(UIButton *)selectButton;
+// segmented点击的时候调用，selectIndex：选中的index，fromeIndex：从哪个index点过来的,selectButton:选中的button,allButtons:所有的button
+- (void)segmentedValueDidChange:(WZBSegmentedControl *)segment selectIndex:(NSInteger)selectIndex fromeIndex:(NSInteger)fromeIndex selectButton:(UIButton *)selectButton allButtons:(NSArray *)allButtons;
+
+@end
+
 @interface WZBSegmentedControl : UIView
 
 // 所有title
 @property (nonatomic, strong, readonly) NSArray *titles;
 // 点击title的block回调
-@property (nonatomic, copy) void(^titleClick)(NSInteger index);
+@property (nonatomic, copy) void(^tClick)(NSInteger index);
+// 点击title的block回调,selectButton:选中的button
+@property (nonatomic, copy) void(^titleClick)(NSInteger index, UIButton *selectButton);
 // baise的滑块
 @property (nonatomic, strong) UIView *backgroundView;
 // 辅助属性,当前选中的Button
@@ -28,8 +46,13 @@
 @property (nonatomic, strong) UIColor *edgingColor;
 // 边框颜色
 @property (nonatomic, assign) CGFloat edgingWidth;
+// delegate
+@property (nonatomic, weak) id <WZBSegmentedControlDelegate> delegate;
 
-+ (instancetype)segmentWithFrame:(CGRect)frame titles:(NSArray *)titles titleClick:(void(^)(NSInteger index))titleClick;
+/* 初始化方法 */
++ (instancetype)segmentWithFrame:(CGRect)frame titles:(NSArray *)titles tClick:(void(^)(NSInteger index))tClick;
+/* 初始化方法，block回调中带有选中的button */
++ (instancetype)segmentWithFrame:(CGRect)frame titles:(NSArray *)titles titleClick:(void(^)(NSInteger index, UIButton *selectButton))titleClick;
 /* 设置滑块的偏移量 */
 - (void)setContentOffset:(CGPoint)contentOffset;
 /* 设置文字颜色
