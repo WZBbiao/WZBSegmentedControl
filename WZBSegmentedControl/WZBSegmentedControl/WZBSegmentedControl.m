@@ -142,6 +142,13 @@ void getRGBValue(CGFloat colorArr[3], UIColor *color) {
     }
 }
 
+- (void)setFont:(UIFont *)font {
+    _font = font;
+    for (UIButton *button in self.allButtons) {
+        button.titleLabel.font = font;
+    }
+}
+
 - (void)setupBase {
     // 默认有1的边框
     self.edgingWidth = 1.0f;
