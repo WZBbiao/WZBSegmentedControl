@@ -297,8 +297,12 @@ void getRGBValue(CGFloat colorArr[3], UIColor *color) {
 }
 // 移除观察者
 - (void)dealloc {
-    [self removeObserver:self forKeyPath:@"borderWidth"];
-    [self removeObserver:self forKeyPath:@"borderColor"];
+    @try {
+        [self.layer removeObserver:self forKeyPath:@"borderWidth"];
+        [self.layer removeObserver:self forKeyPath:@"borderColor"];
+    } @catch (NSException *exception) {
+    } @finally {
+    }
 }
 
 @end
